@@ -42,12 +42,12 @@
             white-space: normal !important;
             word-break: break-word !important;
             overflow-wrap: anywhere !important;
-            line-height: 1.45;
+            line-height: 1.35;
         }
 
         /* Estilização suave da barra de rolagem */
         .custom-scroll::-webkit-scrollbar {
-            height: 9px;
+            height: 8px;
             width: 7px;
         }
         .custom-scroll::-webkit-scrollbar-track {
@@ -55,20 +55,35 @@
         }
         .custom-scroll::-webkit-scrollbar-thumb {
             background: #cbd5e1;
-            border-radius: 5px;
+            border-radius: 6px;
         }
         .custom-scroll::-webkit-scrollbar-thumb:hover {
             background: #94a3b8;
+        }
+
+        /* Fixação de colunas-chave à esquerda sem quebrar layout */
+        .sticky-col-1 {
+            position: sticky;
+            left: 0;
+            z-index: 20;
+        }
+        .sticky-col-2 {
+            position: sticky;
+            left: 44px;
+            z-index: 20;
+        }
+        thead .sticky-col-1, thead .sticky-col-2 {
+            z-index: 30;
         }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
 
     <!-- Topbar Institucional UEMA -->
-    <header class="bg-uema-blue text-white shadow-xl border-b-4 border-uema-gold sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+    <header class="bg-uema-blue text-white shadow-xl border-b-4 border-uema-gold sticky top-0 z-40">
+        <div class="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center space-x-4">
-                <div class="bg-white p-2 rounded-xl shadow-inner flex items-center justify-center border border-slate-200">
+                <div class="bg-white p-2 rounded-xl shadow-inner flex items-center justify-center border border-slate-200 shrink-0">
                     <img src="https://dados.uema.br/wp-content/uploads/2023/12/Brasao_UEMA_horizontal.png" 
                          alt="Brasão UEMA" 
                          class="h-11 w-auto object-contain"
@@ -79,35 +94,64 @@
                         <span>Acompanhamento de Processos</span>
                         <span class="text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">CPO / PROPLAD</span>
                     </h1>
-                    <p class="text-xs sm:text-sm text-slate-300">Universidade Estadual do Maranhão &bull; Acompanhamento de Processos</p>
+                    <p class="text-xs sm:text-sm text-slate-300">Universidade Estadual do Maranhão &bull; Gestão & Planejamento Orçamentário</p>
                 </div>
             </div>
 
-            <!-- Botões de Ação Topo (Upload / Download) -->
-            <div class="flex items-center flex-wrap gap-2.5">
-                <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-lg shadow-md transition-all active:scale-95">
+            <!-- Botões de Ação Topo (Conexão Direta, Upload, Gravação e Exportação) -->
+            <div class="flex items-center flex-wrap gap-2">
+                <!-- Botão de Conexão com Sistema de Arquivos Local (Permite Sobrescrever o Arquivo) -->
+                <button onclick="openWithFileSystemAPI()" title="Abre o arquivo vinculando permissão para salvar diretamente nele" class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs sm:text-sm font-bold rounded-lg shadow transition-all active:scale-95">
+                    <i data-lucide="folder-sync" class="w-4 h-4 text-indigo-200"></i>
+                    <span>Abrir Vinculado (FS API)</span>
+                </button>
+
+                <!-- Botão Tradicional de Carregamento -->
+                <label for="excelFileInput" title="Carregar planilha padrão via formulário" class="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-lg shadow-md transition-all active:scale-95">
                     <i data-lucide="upload" class="w-4 h-4"></i>
-                    <span>Carregar Planilha (.xlsx)</span>
+                    <span>Carregar (.xlsx)</span>
                     <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelect(event)">
                 </label>
 
-                <button id="btnExport" onclick="exportToExcel()" disabled class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-700 text-slate-400 text-xs sm:text-sm font-semibold rounded-lg shadow cursor-not-allowed transition-all">
+                <!-- Botão para Conectar via Link Web / Sheets -->
+                <button onclick="openConnectModal()" class="inline-flex items-center gap-2 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-semibold rounded-lg shadow border border-slate-700 transition active:scale-95">
+                    <i data-lucide="link" class="w-4 h-4 text-sky-400"></i>
+                    <span class="hidden md:inline">Nuvem / Sheets</span>
+                </button>
+
+                <!-- Botão de Salvar Direto no Arquivo Vinculado -->
+                <button id="btnDirectSave" onclick="saveDirectToFile()" disabled class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-slate-700 text-slate-400 text-xs sm:text-sm font-bold rounded-lg shadow cursor-not-allowed transition-all">
+                    <i data-lucide="save" class="w-4 h-4 text-emerald-400"></i>
+                    <span>Salvar no Arquivo</span>
+                </button>
+
+                <!-- Exportar como Novo Arquivo -->
+                <button id="btnExport" onclick="exportToExcel()" disabled class="inline-flex items-center gap-2 px-3 py-2.5 bg-slate-700 text-slate-400 text-xs sm:text-sm font-semibold rounded-lg shadow cursor-not-allowed transition-all">
                     <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>Exportar Dados Atuais</span>
+                    <span>Exportar Novo</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1">
+    <main class="w-full max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 py-5 space-y-5 flex-1">
 
-        <!-- Notificação de Arquivo Ativo -->
-        <div id="fileNotice" class="hidden p-3.5 bg-blue-50 border-l-4 border-uema-accent rounded-r-xl text-xs sm:text-sm text-blue-900 flex items-center justify-between shadow-sm">
-            <div class="flex items-center gap-2.5">
+        <!-- Notificação de Arquivo Ativo, Tipo de Conexão e Auto-Save -->
+        <div id="fileNotice" class="hidden p-3.5 bg-blue-50 border-l-4 border-uema-accent rounded-r-xl text-xs sm:text-sm text-blue-900 flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center flex-wrap gap-2.5">
                 <i data-lucide="file-spreadsheet" class="w-4 h-4 text-uema-accent shrink-0"></i>
-                <span>Arquivo ativo: <strong id="loadedFileName">-</strong> (<span id="loadedRowsCount">0</span> registros importados).</span>
+                <span>Arquivo Ativo: <strong id="loadedFileName">-</strong> (<span id="loadedRowsCount">0</span> registros).</span>
+                <span id="connectionModeBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                    Modo Padrão
+                </span>
+                <span id="saveStatusBadge" class="text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <i data-lucide="check" class="w-3 h-3"></i> Salvo em cache
+                </span>
             </div>
-            <button onclick="document.getElementById('fileNotice').classList.add('hidden')" class="text-blue-700 hover:text-blue-950 font-bold text-xs p-1">✕</button>
+            <div class="flex items-center gap-3">
+                <button onclick="resetDataset()" class="text-xs text-rose-600 hover:text-rose-800 font-semibold underline">Limpar Memória</button>
+                <button onclick="document.getElementById('fileNotice').classList.add('hidden')" class="text-blue-700 hover:text-blue-950 font-bold text-xs p-1">✕</button>
+            </div>
         </div>
 
         <!-- SELEÇÃO SOB DEMANDA (CHECKBOX TOTALIZER BAR) -->
@@ -136,6 +180,9 @@
                     <button onclick="selectAllVisible(false)" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition">
                         Desmarcar
                     </button>
+                    <button onclick="deleteSelectedRows()" class="px-3 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-500 rounded-lg transition flex items-center gap-1">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir Marcados
+                    </button>
                 </div>
             </div>
         </div>
@@ -143,7 +190,7 @@
         <!-- CARDS DE INDICADORES (KPIs) -->
         <section id="kpiContainer" class="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <!-- Total de Processos -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de Processos</p>
                     <h3 id="cardTotalProcessos" class="text-2xl font-black text-slate-800 mt-1">0</h3>
@@ -155,7 +202,7 @@
             </div>
 
             <!-- Valor Total Estimado/Contratado -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Montante Financeiro Total</p>
                     <h3 id="cardTotalValor" class="text-2xl font-black text-emerald-700 mt-1">R$ 0,00</h3>
@@ -167,7 +214,7 @@
             </div>
 
             <!-- Setores Envolvidos -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex items-center justify-between">
                 <div>
                     <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Setores / Localizações</p>
                     <h3 id="cardSetores" class="text-2xl font-black text-blue-700 mt-1">0</h3>
@@ -178,21 +225,21 @@
                 </div>
             </div>
 
-            <!-- Status Mais Frequente -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+            <!-- Prioridades / Foco -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status Mais Frequente</p>
-                    <h3 id="cardStatusDestaque" class="text-lg font-black text-slate-800 mt-1 truncate max-w-[170px]" title="-">-</h3>
-                    <p id="cardStatusDesc" class="text-[11px] text-slate-400 mt-0.5">0 processos</p>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Prioridades / Foco</p>
+                    <h3 id="cardPrioridadesDestaque" class="text-lg font-black text-slate-800 mt-1 truncate" title="-">-</h3>
+                    <p id="cardPrioridadesDesc" class="text-[11px] text-rose-600 font-semibold mt-0.5">0 em alta prioridade</p>
                 </div>
-                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
-                    <i data-lucide="activity" class="w-6 h-6"></i>
+                <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
                 </div>
             </div>
         </section>
 
         <!-- FILTROS DINÂMICOS -->
-        <section id="filtersSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+        <section id="filtersSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5 space-y-4">
             <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                 <div class="flex items-center gap-2">
                     <i data-lucide="sliders-horizontal" class="w-4 h-4 text-uema-lightBlue"></i>
@@ -204,20 +251,32 @@
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 <!-- Busca Universal -->
                 <div class="sm:col-span-2">
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisa Geral (Objeto, Processo, Ofício, SEI...)</label>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisa Geral (Objeto, Processo, SEI, Obs...)</label>
                     <div class="relative">
                         <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
                         <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Digite termos para filtrar..." class="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-uema-accent/40 focus:border-uema-accent">
                     </div>
                 </div>
 
+                <!-- Filtro de Prioridade -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Prioridade</label>
+                    <select id="filterPrioridade" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40">
+                        <option value="">Todas as Prioridades</option>
+                        <option value="Alta">Alta</option>
+                        <option value="Média">Média</option>
+                        <option value="Baixa">Baixa</option>
+                        <option value="Não Definida">Não Definida</option>
+                    </select>
+                </div>
+
                 <!-- Filtro de Status -->
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">Status Atual</label>
-                    <select id="filterStatus" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40 focus:border-uema-accent">
+                    <select id="filterStatus" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40">
                         <option value="">Todos os Status</option>
                     </select>
                 </div>
@@ -225,7 +284,7 @@
                 <!-- Filtro de Localização / Setor -->
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">Localização Setorial</label>
-                    <select id="filterSetor" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40 focus:border-uema-accent">
+                    <select id="filterSetor" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40">
                         <option value="">Todos os Setores</option>
                     </select>
                 </div>
@@ -233,36 +292,49 @@
         </section>
 
         <!-- EMPTY STATE (ESTADO INICIAL SEM DADOS) -->
-        <section id="emptyStateContainer" class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-10 sm:p-14 text-center shadow-sm flex flex-col items-center justify-center">
+        <section id="emptyStateContainer" class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-8 sm:p-14 text-center shadow-sm flex flex-col items-center justify-center">
             <div class="w-16 h-16 rounded-2xl bg-blue-50 text-uema-lightBlue flex items-center justify-center mb-4 shadow-inner">
                 <i data-lucide="file-spreadsheet" class="w-8 h-8 text-uema-blue"></i>
             </div>
-            <h3 class="text-lg sm:text-xl font-bold text-slate-800">Nenhuma planilha carregada no momento</h3>
-            <p class="text-sm text-slate-500 max-w-lg mt-1.5 mb-6">
-                Para iniciar a análise dos processos da CPO/UEMA, clique no botão abaixo e selecione sua planilha Excel (<code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-xs">.xlsx</code>, <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-xs">.xls</code> ou <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-xs">.csv</code>).
+            <h3 class="text-lg sm:text-xl font-bold text-slate-800">Nenhuma planilha conectada no momento</h3>
+            <p class="text-sm text-slate-500 max-w-xl mt-1.5 mb-6">
+                Abra seu arquivo com o botão <strong>Abrir Vinculado (FS API)</strong> para que qualquer alteração seja salva diretamente no mesmo arquivo do computador, ou faça upload tradicional de <code class="bg-slate-100 text-slate-700 px-1 py-0.5 rounded">.xlsx</code> / link web.
             </p>
-            <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-2.5 px-6 py-3 bg-uema-blue hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition active:scale-95">
-                <i data-lucide="upload" class="w-5 h-5 text-amber-400"></i>
-                <span>Selecionar Arquivo Excel</span>
-            </label>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <button onclick="openWithFileSystemAPI()" class="inline-flex items-center gap-2.5 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-lg transition active:scale-95">
+                    <i data-lucide="folder-sync" class="w-5 h-5 text-indigo-200"></i>
+                    <span>Abrir com Conexão Direta (FS API)</span>
+                </button>
+                <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-2.5 px-6 py-3 bg-uema-blue hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-lg transition active:scale-95">
+                    <i data-lucide="upload" class="w-5 h-5 text-amber-400"></i>
+                    <span>Carregar Arquivo (.xlsx / .csv)</span>
+                </label>
+            </div>
         </section>
 
-        <!-- TABELA DE DADOS INTERATIVA -->
-        <section id="tableSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-            <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
+        <!-- TABELA DE DADOS INTERATIVA TOTALMENTE ADAPTADA À TELA (SEM ESTOURAR) -->
+        <section id="tableSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col w-full">
+            <!-- Barra de Ações Superior da Tabela -->
+            <div class="p-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
                 <div class="flex items-center gap-2">
                     <i data-lucide="table" class="w-4 h-4 text-uema-lightBlue"></i>
                     <h3 class="font-bold text-slate-800 text-sm sm:text-base">Detalhamento dos Processos e Contratos</h3>
                 </div>
-                <div class="text-xs text-slate-500">
-                    Clique nas colunas para ordenar &bull; Quebras de linha automáticas para leitura fluida
+                <div class="flex items-center flex-wrap gap-2">
+                    <button onclick="openRecordModal()" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow transition">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Novo Processo
+                    </button>
+                    <!-- Alternar Densidade da Tabela -->
+                    <button onclick="toggleTableDensity()" id="btnDensity" class="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 rounded-lg text-xs font-semibold transition" title="Alternar espaçamento de linhas">
+                        Densidade: Normal
+                    </button>
                 </div>
             </div>
 
-            <!-- Tabela com largura 100% e quebra perfeita sem truncamentos indesejados -->
-            <div class="w-full overflow-x-auto custom-scroll">
-                <table class="w-full text-left text-xs sm:text-sm border-collapse table-auto" id="mainDataTable">
-                    <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 select-none sticky top-0 z-10">
+            <!-- Container com Rolagem Horizontal Limitada e Contida -->
+            <div class="w-full overflow-x-auto custom-scroll max-h-[68vh]">
+                <table class="w-full text-left text-xs sm:text-sm border-collapse" id="mainDataTable">
+                    <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 select-none sticky top-0 z-30 shadow-sm">
                         <tr id="tableHeaderRow">
                             <!-- Preenchido dinamicamente -->
                         </tr>
@@ -273,10 +345,10 @@
                 </table>
             </div>
 
-            <!-- Rodapé da Tabela: Totais -->
+            <!-- Rodapé da Tabela: Contadores e Totais -->
             <div class="p-3.5 bg-slate-100 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-3">
                 <div>
-                    Mostrando <strong id="visibleCountDisplay">0</strong> de <strong id="totalCountDisplay">0</strong> registros encontrados
+                    Mostrando <strong id="visibleCountDisplay">0</strong> de <strong id="totalCountDisplay">0</strong> processos encontrados
                 </div>
                 <div class="flex items-center gap-4">
                     <span>Soma das Linhas Filtradas: <strong id="visibleTotalValueDisplay" class="text-emerald-700 font-bold text-sm">R$ 0,00</strong></span>
@@ -286,33 +358,268 @@
 
     </main>
 
+    <!-- MODAL DE EDIÇÃO / CRIAÇÃO DE REGISTRO -->
+    <div id="recordModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full border border-slate-200 overflow-hidden transform transition-all">
+            <div class="bg-uema-blue text-white px-6 py-4 flex items-center justify-between border-b-2 border-uema-gold">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-amber-400"></i>
+                    <h3 class="font-bold text-base sm:text-lg" id="modalTitle">Editar Processo</h3>
+                </div>
+                <button onclick="closeRecordModal()" class="text-slate-300 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="recordForm" onsubmit="saveRecord(event)" class="p-6 space-y-4 max-h-[78vh] overflow-y-auto custom-scroll">
+                <input type="hidden" id="editInternalId">
+
+                <!-- Prioridade e Status -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Prioridade</label>
+                        <select id="fieldPrioridade" class="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent text-sm font-semibold">
+                            <option value="Baixa">🟢 Baixa</option>
+                            <option value="Média" selected>🟡 Média</option>
+                            <option value="Alta">🔴 Alta</option>
+                        </select>
+                    </div>
+
+                    <div id="dynamicStatusContainer">
+                        <!-- Campo de Status dinâmico/seleção -->
+                    </div>
+                </div>
+
+                <!-- Objeto do Processo -->
+                <div id="dynamicObjetoContainer">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Objeto / Descrição</label>
+                    <textarea id="fieldObjeto" rows="2" class="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent text-sm" placeholder="Descrição do processo ou contrato..."></textarea>
+                </div>
+
+                <!-- Campos Dinâmicos da Planilha Original -->
+                <div id="dynamicFieldsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-3">
+                    <!-- Gerado dinamicamente para os outros campos existentes -->
+                </div>
+
+                <!-- Observações -->
+                <div class="border-t border-slate-100 pt-3">
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>Observações & Anotações Internas</span>
+                        <span class="text-[11px] text-slate-400 font-normal">Exclusivo / Editável</span>
+                    </label>
+                    <textarea id="fieldObservacoes" rows="3" class="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent text-sm" placeholder="Adicione notas sobre andamento, pendências, prazos..."></textarea>
+                </div>
+
+                <!-- Ações do Modal -->
+                <div class="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+                    <button type="button" onclick="closeRecordModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-bold text-white bg-uema-blue hover:bg-slate-800 rounded-lg shadow transition flex items-center gap-2">
+                        <i data-lucide="check" class="w-4 h-4"></i> Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONEXÃO COM PLANILHA VIA URL -->
+    <div id="connectModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden transform transition-all">
+            <div class="bg-uema-blue text-white px-6 py-4 flex items-center justify-between border-b-2 border-uema-gold">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="cloud-download" class="w-5 h-5 text-sky-400"></i>
+                    <h3 class="font-bold text-base">Conectar Planilha Online</h3>
+                </div>
+                <button onclick="closeConnectModal()" class="text-slate-300 hover:text-white transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-600">
+                    Insira o link direto de uma planilha do <strong>Google Sheets publicada como CSV</strong> ou qualquer URL direta de arquivo <code class="bg-slate-100 px-1 py-0.5 rounded">.xlsx</code> ou <code class="bg-slate-100 px-1 py-0.5 rounded">.csv</code>.
+                </p>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">URL da Planilha</label>
+                    <input type="url" id="sheetUrlInput" placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv" class="w-full p-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent">
+                </div>
+
+                <div class="pt-2 flex items-center justify-end gap-3">
+                    <button type="button" onclick="closeConnectModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+                    <button type="button" onclick="fetchSheetFromUrl()" id="btnFetchSheet" class="px-5 py-2 text-sm font-bold text-white bg-uema-accent hover:bg-blue-700 rounded-lg shadow flex items-center gap-2">
+                        <i data-lucide="download-cloud" class="w-4 h-4"></i> Conectar e Carregar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Rodapé Oficial UEMA -->
     <footer class="bg-slate-900 text-slate-400 py-4 text-center text-xs border-t border-slate-800">
-        <p>&copy; Coordenação de Planejamento e Orçamento / Pró-Reitoria de Planejamento - UEMA. Cidade Universitária Paulo VI, São Luís - MA.</p>
-        <p class="text-[11px] text-slate-500 mt-1">Plataforma Executiva de Apresentação e Conferência Orçamentária.</p>
+        <p>&copy; Coordenação de Planejamento e Orçamento / Pró-Reitoria de Planejamento e Administração - UEMA.</p>
+        <p class="text-[11px] text-slate-500 mt-1">Plataforma Executiva de Apresentação, Conferência e Atualização Orçamentária.</p>
     </footer>
 
     <script>
-        // Estado Global: Inicia 100% VAZIO (sem dados prévios ou modelo mock)
+        // Estado Global da Aplicação
         let dataset = [];
         let filteredDataset = [];
         let selectedRowsIds = new Set();
         let currentSortColumn = null;
         let isAscending = true;
-        let originalFileName = "acompanhamento.xlsx";
+        let originalFileName = "acompanhamento_cpo.xlsx";
+        let fileHandle = null;
+        let tableDensity = 'normal';
+
+        const STORAGE_KEY = "UEMA_CPO_DATASET_V2";
+        const STORAGE_NAME_KEY = "UEMA_CPO_FILENAME_V2";
 
         window.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
+            checkLocalStorageBackup();
         });
 
-        // Manipulação do Arquivo Excel (.xlsx)
+        // Alterna densidade de linhas
+        function toggleTableDensity() {
+            tableDensity = (tableDensity === 'normal') ? 'compact' : 'normal';
+            document.getElementById('btnDensity').innerText = `Densidade: ${tableDensity === 'compact' ? 'Compacta' : 'Normal'}`;
+            renderTable();
+        }
+
+        // ==========================================
+        // LEITURA COM A FILE SYSTEM ACCESS API
+        // ==========================================
+        async function openWithFileSystemAPI() {
+            if (!('showOpenFilePicker' in window)) {
+                alert("Seu navegador atual não possui suporte nativo à gravação direta de arquivos locais. Utilize o Chrome, Edge ou Opera, ou use o botão 'Carregar (.xlsx)'.");
+                return;
+            }
+
+            try {
+                const [handle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'Planilhas Excel',
+                        accept: {
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+                            'application/vnd.ms-excel': ['.xls', '.csv']
+                        }
+                    }],
+                    multiple: false
+                });
+
+                fileHandle = handle;
+                originalFileName = handle.name;
+
+                const file = await fileHandle.getFile();
+                const arrayBuffer = await file.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                if (!json || json.length === 0) {
+                    alert("A planilha selecionada está vazia.");
+                    return;
+                }
+
+                processImportedJson(json, handle.name);
+
+                document.getElementById('connectionModeBadge').innerText = "Vínculo Direto (FS API)";
+                document.getElementById('connectionModeBadge').className = "text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200";
+
+                const btnDirectSave = document.getElementById('btnDirectSave');
+                btnDirectSave.disabled = false;
+                btnDirectSave.className = "inline-flex items-center gap-2 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-lg shadow transition-all active:scale-95";
+
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error("Erro ao abrir via FS API:", err);
+                    alert("Não foi possível carregar o arquivo diretamente.");
+                }
+            }
+        }
+
+        async function saveDirectToFile() {
+            if (!fileHandle) {
+                exportToExcel();
+                return;
+            }
+
+            try {
+                const exportRows = dataset.map(row => {
+                    const clone = { ...row };
+                    delete clone._internal_id;
+                    return clone;
+                });
+
+                const ws = XLSX.utils.json_to_sheet(exportRows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Processos_Atualizados");
+
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+
+                const writable = await fileHandle.createWritable();
+                await writable.write(wbout);
+                await writable.close();
+
+                alert(`Arquivo "${fileHandle.name}" atualizado e gravado com sucesso no seu disco!`);
+                saveToLocalStorage();
+            } catch (err) {
+                console.error("Erro ao salvar diretamente:", err);
+                alert("Falha ao gravar diretamente no arquivo. Permissão negada ou arquivo bloqueado pelo Excel. Fazendo exportação convencional...");
+                exportToExcel();
+            }
+        }
+
+        function checkLocalStorageBackup() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                const savedName = localStorage.getItem(STORAGE_NAME_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        dataset = parsed;
+                        originalFileName = savedName || "planilha_salva.xlsx";
+                        activateAppUI(originalFileName, true);
+                    }
+                }
+            } catch(e) {
+                console.warn("Nenhum dado salvo em cache local.", e);
+            }
+        }
+
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(dataset));
+                localStorage.setItem(STORAGE_NAME_KEY, originalFileName);
+                const badge = document.getElementById('saveStatusBadge');
+                if (badge) {
+                    badge.classList.remove('opacity-0');
+                    setTimeout(() => badge.classList.add('opacity-0'), 2500);
+                }
+            } catch (err) {
+                console.warn("Armazenamento local cheio.", err);
+            }
+        }
+
+        function resetDataset() {
+            if (confirm("Deseja realmente limpar a planilha atual da memória do navegador?")) {
+                localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem(STORAGE_NAME_KEY);
+                location.reload();
+            }
+        }
+
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            fileHandle = null;
             originalFileName = file.name;
-
             const reader = new FileReader();
+
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
@@ -325,45 +632,91 @@
 
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-
-                    // Conversão direta para JSON
                     const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
                     if (!json || json.length === 0) {
-                        alert("A planilha selecionada está vazia ou não contém dados na primeira aba.");
+                        alert("A planilha selecionada está vazia.");
                         return;
                     }
 
-                    // Processamento e normalização dos dados
-                    dataset = json.map((row, index) => {
-                        const normalizedRow = { _internal_id: index + 1 };
-                        Object.keys(row).forEach(key => {
-                            const trimmedKey = key.trim();
-                            let val = row[key];
-
-                            // Converte valores monetários para números caso seja coluna de valor
-                            if (/valor|montante|preço|preco|total|orcamento|orçamento|custo/i.test(trimmedKey)) {
-                                if (typeof val === 'string') {
-                                    val = parseMonetaryString(val);
-                                }
-                            }
-                            normalizedRow[trimmedKey] = val;
-                        });
-                        return normalizedRow;
-                    });
-
-                    // Ativa os painéis da aplicação
-                    activateAppUI(file.name);
-
+                    processImportedJson(json, file.name);
                 } catch (err) {
                     console.error("Erro na leitura da planilha:", err);
-                    alert("Falha ao interpretar o arquivo. Certifique-se de que é uma planilha Excel (.xlsx, .xls) válida.");
+                    alert("Falha ao interpretar o arquivo.");
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // Converte representações monetárias BR para Float
+        async function fetchSheetFromUrl() {
+            const urlInput = document.getElementById('sheetUrlInput');
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert("Por favor, informe a URL da planilha.");
+                return;
+            }
+
+            const btn = document.getElementById('btnFetchSheet');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Baixando...`;
+            lucide.createIcons();
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Erro: status ${response.status}`);
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                if (!json || json.length === 0) {
+                    alert("Dados retornados vazios.");
+                    return;
+                }
+
+                closeConnectModal();
+                fileHandle = null;
+                processImportedJson(json, "Planilha_Nuvem_CPO.xlsx");
+            } catch (err) {
+                console.error("Erro via URL:", err);
+                alert("Não foi possível carregar a URL informada. Certifique-se de publicar como CSV no Google Sheets.");
+            } finally {
+                btn.innerHTML = originalText;
+                lucide.createIcons();
+            }
+        }
+
+        function processImportedJson(json, sourceName) {
+            dataset = json.map((row, index) => {
+                const id = index + 1;
+                const normalizedRow = { _internal_id: id };
+
+                Object.keys(row).forEach(key => {
+                    const trimmedKey = key.trim();
+                    let val = row[key];
+
+                    if (/valor|montante|preço|preco|total|orcamento|orçamento|custo/i.test(trimmedKey)) {
+                        if (typeof val === 'string') {
+                            val = parseMonetaryString(val);
+                        }
+                    }
+                    normalizedRow[trimmedKey] = val;
+                });
+
+                if (!normalizedRow['Prioridade']) normalizedRow['Prioridade'] = 'Média';
+                if (!normalizedRow['Observações']) normalizedRow['Observações'] = normalizedRow['Observacoes'] || '';
+
+                return normalizedRow;
+            });
+
+            saveToLocalStorage();
+            activateAppUI(sourceName);
+        }
+
         function parseMonetaryString(str) {
             if (!str) return 0;
             let cleaned = str.toString().replace(/R\$\s?/g, '').trim();
@@ -376,11 +729,9 @@
             return isNaN(num) ? 0 : num;
         }
 
-        // Ativação e Renderização da UI pós-importação
-        function activateAppUI(fileName) {
+        function activateAppUI(fileName, isFromBackup = false) {
             selectedRowsIds.clear();
 
-            // Esconde Empty State e exibe os painéis
             document.getElementById('emptyStateContainer').classList.add('hidden');
             document.getElementById('kpiContainer').classList.remove('hidden');
             document.getElementById('kpiContainer').classList.add('grid');
@@ -388,15 +739,12 @@
             document.getElementById('tableSection').classList.remove('hidden');
             document.getElementById('selectionSummaryBar').classList.remove('hidden');
 
-            // Habilita botão de exportação
             const btnExport = document.getElementById('btnExport');
             btnExport.disabled = false;
-            btnExport.classList.remove('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
-            btnExport.classList.add('bg-uema-lightBlue', 'hover:bg-blue-600', 'text-white', 'active:scale-95');
+            btnExport.className = "inline-flex items-center gap-2 px-3 py-2.5 bg-uema-lightBlue hover:bg-blue-600 text-white text-xs sm:text-sm font-semibold rounded-lg shadow transition-all active:scale-95";
 
-            // Atualiza notificação de arquivo
             document.getElementById('fileNotice').classList.remove('hidden');
-            document.getElementById('loadedFileName').innerText = fileName;
+            document.getElementById('loadedFileName').innerText = fileName + (isFromBackup ? " (Sessão Restaurada)" : "");
             document.getElementById('loadedRowsCount').innerText = dataset.length;
 
             populateFilters();
@@ -404,10 +752,12 @@
             lucide.createIcons();
         }
 
-        // Localizadores dinâmicos de cabeçalhos
         function getAvailableColumns() {
             if (dataset.length === 0) return [];
-            return Object.keys(dataset[0]).filter(k => k !== '_internal_id');
+            const cols = Object.keys(dataset[0]).filter(k => k !== '_internal_id');
+            if (!cols.includes('Prioridade')) cols.push('Prioridade');
+            if (!cols.includes('Observações')) cols.push('Observações');
+            return cols;
         }
 
         function findColByName(regex) {
@@ -431,12 +781,10 @@
             return findColByName(/objeto|descri|especific/i);
         }
 
-        // Popula selects de filtros com os valores reais da planilha
         function populateFilters() {
             const statusCol = getStatusColumn();
             const setorCol = getSetorColumn();
 
-            // Popula Status
             const filterStatus = document.getElementById('filterStatus');
             filterStatus.innerHTML = '<option value="">Todos os Status</option>';
             if (statusCol) {
@@ -449,7 +797,6 @@
                 });
             }
 
-            // Popula Setor
             const filterSetor = document.getElementById('filterSetor');
             filterSetor.innerHTML = '<option value="">Todos os Setores</option>';
             if (setorCol) {
@@ -463,11 +810,11 @@
             }
         }
 
-        // Aplicação de Filtros
         function applyFilters() {
             if (dataset.length === 0) return;
 
             const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
+            const prioridadeVal = document.getElementById('filterPrioridade').value;
             const statusVal = document.getElementById('filterStatus').value;
             const setorVal = document.getElementById('filterSetor').value;
 
@@ -475,7 +822,6 @@
             const setorCol = getSetorColumn();
 
             filteredDataset = dataset.filter(row => {
-                // Filtro de Texto
                 if (searchVal) {
                     const match = Object.keys(row).some(k => {
                         if (k === '_internal_id') return false;
@@ -484,12 +830,15 @@
                     if (!match) return false;
                 }
 
-                // Filtro de Status
+                if (prioridadeVal) {
+                    const p = row['Prioridade'] || 'Não Definida';
+                    if (p.toLowerCase() !== prioridadeVal.toLowerCase()) return false;
+                }
+
                 if (statusVal && statusCol) {
                     if (String(row[statusCol] || '') !== statusVal) return false;
                 }
 
-                // Filtro de Setor
                 if (setorVal && setorCol) {
                     if (String(row[setorCol] || '') !== setorVal) return false;
                 }
@@ -504,16 +853,20 @@
             renderTable();
             updateKPIs();
             updateSelectionBar();
+            lucide.createIcons();
         }
 
         function clearAllFilters() {
             document.getElementById('searchInput').value = '';
+            document.getElementById('filterPrioridade').value = '';
             document.getElementById('filterStatus').value = '';
             document.getElementById('filterSetor').value = '';
             applyFilters();
         }
 
-        // Renderização da Tabela com Quebra Perfeita de Linhas
+        // ==========================================
+        // RENDERIZAÇÃO DA TABELA ADAPTADA À TELA
+        // ==========================================
         function renderTable() {
             const thead = document.getElementById('tableHeaderRow');
             const tbody = document.getElementById('tableBody');
@@ -524,11 +877,15 @@
             const valCol = getValueColumn();
             const statusCol = getStatusColumn();
             const objetoCol = getObjetoColumn();
+            const padY = tableDensity === 'compact' ? 'py-1.5' : 'py-2.5';
 
-            // Monta Cabeçalho
+            // Cabeçalho com larguras proporcionais para caber na tela sem estourar
             let headHtml = `
-                <th class="p-3 w-12 text-center border-r border-slate-200">
+                <th class="p-2 w-11 text-center bg-slate-100 border-r border-slate-200 sticky-col-1">
                     <input type="checkbox" id="masterCheckbox" onchange="toggleSelectAll(this.checked)" class="w-4 h-4 rounded text-uema-accent focus:ring-0 cursor-pointer">
+                </th>
+                <th class="p-2 w-16 text-center bg-slate-100 text-slate-800 text-[11px] font-bold uppercase tracking-wider border-r border-slate-200 sticky-col-2">
+                    Ações
                 </th>
             `;
 
@@ -536,16 +893,18 @@
                 const isValue = (col === valCol);
                 const sortIndicator = currentSortColumn === col ? (isAscending ? ' ▲' : ' ▼') : '';
                 
-                // Define larguras sugeridas conforme o tipo da coluna
-                let minWidthClass = "min-w-[140px]";
-                if (col === objetoCol) minWidthClass = "min-w-[280px] max-w-[380px]";
-                if (/ofício|oficio|sei/i.test(col)) minWidthClass = "min-w-[180px] max-w-[240px]";
-                if (isValue) minWidthClass = "min-w-[130px]";
+                // Larguras equilibradas e adaptadas: Objeto e Obs recebem espaço maior, o resto é contido
+                let colWidthClass = "w-auto min-w-[110px]";
+                if (col === objetoCol) colWidthClass = "w-1/3 min-w-[220px]";
+                else if (col === 'Observações') colWidthClass = "w-1/4 min-w-[180px]";
+                else if (col === 'Prioridade') colWidthClass = "w-24 min-w-[95px]";
+                else if (isValue) colWidthClass = "w-28 min-w-[110px]";
+                else if (/processo|sei|ofício|oficio/i.test(col)) colWidthClass = "w-32 min-w-[120px]";
 
                 headHtml += `
-                    <th onclick="toggleSort('${col}')" class="p-3 cursor-pointer hover:bg-slate-200 transition text-slate-800 text-xs font-bold uppercase tracking-wider ${minWidthClass} ${isValue ? 'text-right' : 'text-left'}">
-                        <div class="flex items-center gap-1.5 ${isValue ? 'justify-end' : 'justify-start'}">
-                            <span>${col}</span>
+                    <th onclick="toggleSort('${col}')" class="p-2.5 cursor-pointer hover:bg-slate-200 transition text-slate-800 text-[11px] sm:text-xs font-bold uppercase tracking-wider border-r border-slate-200 ${colWidthClass} ${isValue ? 'text-right' : 'text-left'}">
+                        <div class="flex items-center gap-1 ${isValue ? 'justify-end' : 'justify-start'}">
+                            <span class="truncate">${col}</span>
                             <span class="text-[10px] text-slate-400 font-mono">${sortIndicator}</span>
                         </div>
                     </th>
@@ -553,9 +912,9 @@
             });
             thead.innerHTML = headHtml;
 
-            // Monta Corpo da Tabela
+            // Corpo da Tabela
             if (filteredDataset.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="p-8 text-center text-slate-400 font-medium">Nenhum registro corresponde aos filtros selecionados.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="${columns.length + 2}" class="p-8 text-center text-slate-400 font-medium">Nenhum registro corresponde aos filtros selecionados.</td></tr>`;
                 return;
             }
 
@@ -563,35 +922,70 @@
             filteredDataset.forEach((row, idx) => {
                 const id = row._internal_id;
                 const isChecked = selectedRowsIds.has(id);
+                const rowBg = isChecked ? 'bg-amber-50/90' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60');
 
                 bodyHtml += `
-                    <tr class="transition-colors hover:bg-blue-50/70 ${isChecked ? 'bg-amber-50/70 border-l-4 border-amber-500' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40')}">
-                        <td class="p-3 text-center border-r border-slate-100">
+                    <tr ondblclick="editRow(${id})" class="group transition-colors hover:bg-blue-50/80 ${rowBg}">
+                        <td class="p-2 text-center border-r border-slate-200 ${rowBg} sticky-col-1">
                             <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRowSelection(${id}, this.checked)" class="w-4 h-4 rounded text-uema-accent focus:ring-0 cursor-pointer">
+                        </td>
+                        <td class="p-1.5 text-center whitespace-nowrap border-r border-slate-200 ${rowBg} sticky-col-2 shadow-sm">
+                            <div class="flex items-center justify-center gap-1">
+                                <button onclick="editRow(${id})" title="Editar Processo" class="p-1 bg-blue-50 hover:bg-blue-100 text-uema-accent rounded transition">
+                                    <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="deleteSingleRow(${id})" title="Excluir Registro" class="p-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded transition">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
                         </td>
                 `;
 
                 columns.forEach(col => {
                     const val = row[col];
 
-                    if (col === valCol) {
+                    if (col === 'Prioridade') {
+                        const prio = (val || 'Média').toLowerCase();
+                        let badgeColor = 'bg-amber-100 text-amber-800 border-amber-300';
+                        let dotColor = 'bg-amber-500';
+                        if (prio === 'alta') {
+                            badgeColor = 'bg-rose-100 text-rose-800 border-rose-300 font-bold';
+                            dotColor = 'bg-rose-600';
+                        } else if (prio === 'baixa') {
+                            badgeColor = 'bg-emerald-100 text-emerald-800 border-emerald-300';
+                            dotColor = 'bg-emerald-600';
+                        }
+
+                        bodyHtml += `
+                            <td class="p-2 ${padY} whitespace-nowrap border-r border-slate-100 text-center">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] border ${badgeColor}">
+                                    <span class="w-1.5 h-1.5 rounded-full ${dotColor}"></span>
+                                    ${row['Prioridade'] || 'Média'}
+                                </span>
+                            </td>
+                        `;
+                    } else if (col === 'Observações') {
+                        bodyHtml += `
+                            <td class="p-2.5 ${padY} cell-wrap-text text-slate-600 text-xs italic border-r border-slate-100">
+                                ${val ? `<span class="bg-amber-50/80 text-slate-800 px-2 py-0.5 rounded border border-amber-200/60 block">${val}</span>` : '<span class="text-slate-400 not-italic">-</span>'}
+                            </td>
+                        `;
+                    } else if (col === valCol) {
                         const num = typeof val === 'number' ? val : parseMonetaryString(val);
                         bodyHtml += `
-                            <td class="p-3 text-right font-black text-slate-900 whitespace-nowrap tabular-nums text-xs sm:text-sm">
+                            <td class="p-2.5 ${padY} text-right font-black text-slate-900 whitespace-nowrap tabular-nums text-xs border-r border-slate-100">
                                 ${formatCurrency(num)}
                             </td>
                         `;
                     } else if (col === statusCol) {
-                        // Status exibido diretamente como texto com quebra de linha harmoniosa (sem bags/pílulas)
                         bodyHtml += `
-                            <td class="p-3 cell-wrap-text text-slate-800 font-medium">
+                            <td class="p-2.5 ${padY} cell-wrap-text text-slate-800 font-medium border-r border-slate-100 text-xs">
                                 ${val !== undefined && val !== null && String(val).trim() !== '' ? val : '<span class="text-slate-400">-</span>'}
                             </td>
                         `;
                     } else {
-                        // Todas as demais colunas (Objeto, Ofício, Processo, N.º SEI) com quebra de linha harmoniosa
                         bodyHtml += `
-                            <td class="p-3 cell-wrap-text text-slate-700 font-normal">
+                            <td class="p-2.5 ${padY} cell-wrap-text text-slate-700 font-normal border-r border-slate-100 text-xs">
                                 ${val !== undefined && val !== null && String(val).trim() !== '' ? val : '<span class="text-slate-400">-</span>'}
                             </td>
                         `;
@@ -603,6 +997,7 @@
 
             tbody.innerHTML = bodyHtml;
             updateMasterCheckbox();
+            lucide.createIcons();
         }
 
         // Ordenação
@@ -711,7 +1106,6 @@
 
             const valCol = getValueColumn();
             const setorCol = getSetorColumn();
-            const statusCol = getStatusColumn();
 
             // Total Financeiro
             let sumValor = 0;
@@ -734,40 +1128,161 @@
                 document.getElementById('cardSetoresDesc').innerText = "Coluna não detectada";
             }
 
-            // Status Mais Frequente
-            if (statusCol && total > 0) {
-                const frequency = {};
-                filteredDataset.forEach(r => {
-                    const st = r[statusCol];
-                    if (st) frequency[st] = (frequency[st] || 0) + 1;
-                });
+            // Prioridades Altas
+            const highCount = filteredDataset.filter(r => (r['Prioridade'] || '').toLowerCase() === 'alta').length;
+            const medCount = filteredDataset.filter(r => (r['Prioridade'] || '').toLowerCase() === 'média').length;
+            document.getElementById('cardPrioridadesDestaque').innerText = `${highCount} Alta(s) | ${medCount} Média(s)`;
+            document.getElementById('cardPrioridadesDesc').innerText = `${highCount} processo(s) exigem atenção imediata`;
+        }
 
-                let topStatus = '-';
-                let topCount = 0;
-                Object.keys(frequency).forEach(k => {
-                    if (frequency[k] > topCount) {
-                        topCount = frequency[k];
-                        topStatus = k;
-                    }
-                });
+        // Operações de Edição
+        function openRecordModal(id = null) {
+            const modal = document.getElementById('recordModal');
+            const title = document.getElementById('modalTitle');
+            const internalIdInput = document.getElementById('editInternalId');
+            const dynamicContainer = document.getElementById('dynamicFieldsContainer');
+            const statusContainer = document.getElementById('dynamicStatusContainer');
+            const columns = getAvailableColumns();
+            const statusCol = getStatusColumn();
+            const objetoCol = getObjetoColumn();
+            const valCol = getValueColumn();
 
-                document.getElementById('cardStatusDestaque').innerText = topStatus;
-                document.getElementById('cardStatusDestaque').title = topStatus;
-                document.getElementById('cardStatusDesc').innerText = `${topCount} processos (${Math.round((topCount/total)*100)}%)`;
+            dynamicContainer.innerHTML = '';
+            statusContainer.innerHTML = '';
+
+            let currentRecord = null;
+            if (id) {
+                currentRecord = dataset.find(r => r._internal_id === id);
+                title.innerText = "Editar Processo #" + id;
+                internalIdInput.value = id;
             } else {
-                document.getElementById('cardStatusDestaque').innerText = "-";
-                document.getElementById('cardStatusDesc').innerText = "0 processos";
+                title.innerText = "Adicionar Novo Processo";
+                internalIdInput.value = "";
+            }
+
+            document.getElementById('fieldPrioridade').value = currentRecord ? (currentRecord['Prioridade'] || 'Média') : 'Média';
+            document.getElementById('fieldObservacoes').value = currentRecord ? (currentRecord['Observações'] || '') : '';
+            document.getElementById('fieldObjeto').value = (currentRecord && objetoCol) ? (currentRecord[objetoCol] || '') : '';
+
+            if (statusCol) {
+                statusContainer.innerHTML = `
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${statusCol}</label>
+                    <input type="text" id="fieldStatus" value="${currentRecord ? (currentRecord[statusCol] || '') : ''}" class="w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent text-sm" placeholder="Ex: Em Análise, Assinado, Empenhado...">
+                `;
+            }
+
+            columns.forEach(col => {
+                if (col === 'Prioridade' || col === 'Observações' || col === statusCol || col === objetoCol) return;
+                
+                const isValue = (col === valCol);
+                const val = currentRecord ? (currentRecord[col] !== undefined ? currentRecord[col] : '') : '';
+
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">${col}</label>
+                    <input type="text" 
+                           data-col-name="${col}" 
+                           value="${val}" 
+                           class="dynamic-input w-full p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent text-sm ${isValue ? 'font-bold' : ''}" 
+                           placeholder="${isValue ? 'Ex: 15000,00' : ''}">
+                `;
+                dynamicContainer.appendChild(div);
+            });
+
+            modal.classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeRecordModal() {
+            document.getElementById('recordModal').classList.add('hidden');
+        }
+
+        function editRow(id) {
+            openRecordModal(id);
+        }
+
+        function saveRecord(e) {
+            e.preventDefault();
+            const idVal = document.getElementById('editInternalId').value;
+            const isEdit = Boolean(idVal);
+
+            let record;
+            if (isEdit) {
+                record = dataset.find(r => r._internal_id === parseInt(idVal));
+                if (!record) return;
+            } else {
+                const nextId = dataset.reduce((max, r) => Math.max(max, r._internal_id || 0), 0) + 1;
+                record = { _internal_id: nextId };
+                dataset.unshift(record);
+            }
+
+            record['Prioridade'] = document.getElementById('fieldPrioridade').value;
+            record['Observações'] = document.getElementById('fieldObservacoes').value;
+
+            const objetoCol = getObjetoColumn() || 'Objeto';
+            record[objetoCol] = document.getElementById('fieldObjeto').value;
+
+            const statusCol = getStatusColumn();
+            if (statusCol && document.getElementById('fieldStatus')) {
+                record[statusCol] = document.getElementById('fieldStatus').value;
+            }
+
+            const valCol = getValueColumn();
+
+            const inputs = document.querySelectorAll('.dynamic-input');
+            inputs.forEach(inp => {
+                const col = inp.getAttribute('data-col-name');
+                let val = inp.value;
+                if (col === valCol) {
+                    val = parseMonetaryString(val);
+                }
+                record[col] = val;
+            });
+
+            saveToLocalStorage();
+            closeRecordModal();
+            populateFilters();
+            applyFilters();
+        }
+
+        function deleteSingleRow(id) {
+            if (confirm(`Tem certeza que deseja excluir o processo #${id}?`)) {
+                dataset = dataset.filter(r => r._internal_id !== id);
+                selectedRowsIds.delete(id);
+                saveToLocalStorage();
+                populateFilters();
+                applyFilters();
             }
         }
 
-        // Exportação XLSX Respeitando Filtros
+        function deleteSelectedRows() {
+            const count = selectedRowsIds.size;
+            if (count === 0) return;
+
+            if (confirm(`Confirma a exclusão de ${count} processo(s) selecionados?`)) {
+                dataset = dataset.filter(r => !selectedRowsIds.has(r._internal_id));
+                selectedRowsIds.clear();
+                saveToLocalStorage();
+                populateFilters();
+                applyFilters();
+            }
+        }
+
+        function openConnectModal() {
+            document.getElementById('connectModal').classList.remove('hidden');
+        }
+
+        function closeConnectModal() {
+            document.getElementById('connectModal').classList.add('hidden');
+        }
+
+        // Exportação XLSX tradicional
         function exportToExcel() {
-            if (filteredDataset.length === 0) {
-                alert("Não há dados visíveis na tabela para exportar.");
+            if (dataset.length === 0) {
+                alert("Não há dados na tabela para exportar.");
                 return;
             }
 
-            // Remove o ID interno para exportação limpa e idêntica à planilha original
             const exportRows = filteredDataset.map(row => {
                 const clone = { ...row };
                 delete clone._internal_id;
@@ -776,15 +1291,14 @@
 
             const ws = XLSX.utils.json_to_sheet(exportRows);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Processos_UEMA");
+            XLSX.utils.book_append_sheet(wb, ws, "Processos_Atualizados");
 
             const dateStr = new Date().toISOString().slice(0, 10);
-            const outName = originalFileName.replace(/\.[^/.]+$/, "") + `_filtrado_${dateStr}.xlsx`;
+            const outName = originalFileName.replace(/\.[^/.]+$/, "") + `_atualizado_${dateStr}.xlsx`;
 
             XLSX.writeFile(wb, outName);
         }
 
-        // Formatação Monetária BRL
         function formatCurrency(val) {
             return Number(val || 0).toLocaleString('pt-BR', {
                 style: 'currency',
