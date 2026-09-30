@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acompanhamento de Processos e Contratos | CPO - UEMA</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (xlsx.full.min.js) para leitura e escrita de Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        uema: {
+                            blue: '#0A2540',
+                            navy: '#051829',
+                            lightBlue: '#164E87',
+                            red: '#B91C1C',
+                            gold: '#D97706',
+                            accent: '#1D4ED8',
+                            bg: '#F1F5F9',
+                            card: '#FFFFFF'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+
+        /* Quebras de linha e formatação perfeita para células de texto */
+        .cell-wrap-text {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+            line-height: 1.45;
+        }
+
+        /* Estilização suave da barra de rolagem */
+        .custom-scroll::-webkit-scrollbar {
+            height: 9px;
+            width: 7px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Topbar Institucional UEMA -->
+    <header class="bg-uema-blue text-white shadow-xl border-b-4 border-uema-gold sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="bg-white p-2 rounded-xl shadow-inner flex items-center justify-center border border-slate-200">
+                    <img src="https://dados.uema.br/wp-content/uploads/2023/12/Brasao_UEMA_horizontal.png" 
+                         alt="Brasão UEMA" 
+                         class="h-11 w-auto object-contain"
+                         onerror="this.onerror=null; this.src='https://placehold.co/180x44/0A2540/ffffff?text=UEMA';">
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
+                        <span>Acompanhamento de Processos</span>
+                        <span class="text-[11px] font-bold uppercase px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">CPO / PROPLAD</span>
+                    </h1>
+                    <p class="text-xs sm:text-sm text-slate-300">Universidade Estadual do Maranhão &bull; Acompanhamento de Processos</p>
+                </div>
+            </div>
+
+            <!-- Botões de Ação Topo (Upload / Download) -->
+            <div class="flex items-center flex-wrap gap-2.5">
+                <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold rounded-lg shadow-md transition-all active:scale-95">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    <span>Carregar Planilha (.xlsx)</span>
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileSelect(event)">
+                </label>
+
+                <button id="btnExport" onclick="exportToExcel()" disabled class="inline-flex items-center gap-2 px-4 py-2.5 bg-slate-700 text-slate-400 text-xs sm:text-sm font-semibold rounded-lg shadow cursor-not-allowed transition-all">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    <span>Exportar Dados Atuais</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1">
+
+        <!-- Notificação de Arquivo Ativo -->
+        <div id="fileNotice" class="hidden p-3.5 bg-blue-50 border-l-4 border-uema-accent rounded-r-xl text-xs sm:text-sm text-blue-900 flex items-center justify-between shadow-sm">
+            <div class="flex items-center gap-2.5">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-uema-accent shrink-0"></i>
+                <span>Arquivo ativo: <strong id="loadedFileName">-</strong> (<span id="loadedRowsCount">0</span> registros importados).</span>
+            </div>
+            <button onclick="document.getElementById('fileNotice').classList.add('hidden')" class="text-blue-700 hover:text-blue-950 font-bold text-xs p-1">✕</button>
+        </div>
+
+        <!-- SELEÇÃO SOB DEMANDA (CHECKBOX TOTALIZER BAR) -->
+        <div id="selectionSummaryBar" class="hidden bg-slate-900 text-white p-4 rounded-xl shadow-lg border border-slate-700 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-amber-500/20 text-amber-300 rounded-lg border border-amber-500/30">
+                    <i data-lucide="check-square" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="text-xs uppercase tracking-wider font-semibold text-slate-300">Cálculo Sob Demanda (Itens Selecionados)</div>
+                    <div class="text-sm font-medium text-slate-200">
+                        <span id="selectedCount" class="font-black text-amber-400 text-lg">0</span> registros marcados na tabela
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center flex-wrap gap-4 sm:gap-6">
+                <div>
+                    <span class="text-xs text-slate-400 block">Subtotal dos Marcados</span>
+                    <span id="selectedTotalValue" class="text-xl sm:text-2xl font-black text-amber-400 tracking-tight">R$ 0,00</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="selectAllVisible(true)" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition">
+                        Marcar Visíveis
+                    </button>
+                    <button onclick="selectAllVisible(false)" class="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-600 transition">
+                        Desmarcar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CARDS DE INDICADORES (KPIs) -->
+        <section id="kpiContainer" class="hidden grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total de Processos -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total de Processos</p>
+                    <h3 id="cardTotalProcessos" class="text-2xl font-black text-slate-800 mt-1">0</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5" id="cardProcessosDesc">Registros na planilha</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-blue-50 text-uema-accent flex items-center justify-center font-bold">
+                    <i data-lucide="folder-kanban" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Valor Total Estimado/Contratado -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Montante Financeiro Total</p>
+                    <h3 id="cardTotalValor" class="text-2xl font-black text-emerald-700 mt-1">R$ 0,00</h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Soma dos processos visíveis</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <i data-lucide="banknote" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Setores Envolvidos -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Setores / Localizações</p>
+                    <h3 id="cardSetores" class="text-2xl font-black text-blue-700 mt-1">0</h3>
+                    <p id="cardSetoresDesc" class="text-[11px] text-blue-600 font-semibold mt-0.5">Unidades distintas</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                    <i data-lucide="building-2" class="w-6 h-6"></i>
+                </div>
+            </div>
+
+            <!-- Status Mais Frequente -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status Mais Frequente</p>
+                    <h3 id="cardStatusDestaque" class="text-lg font-black text-slate-800 mt-1 truncate max-w-[170px]" title="-">-</h3>
+                    <p id="cardStatusDesc" class="text-[11px] text-slate-400 mt-0.5">0 processos</p>
+                </div>
+                <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+                    <i data-lucide="activity" class="w-6 h-6"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- FILTROS DINÂMICOS -->
+        <section id="filtersSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4 text-uema-lightBlue"></i>
+                    <h2 class="text-sm sm:text-base font-bold text-slate-800">Filtros Dinâmicos</h2>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded font-mono" id="recordsBadge">0 registros</span>
+                </div>
+                <button onclick="clearAllFilters()" class="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1 transition">
+                    <i data-lucide="filter-x" class="w-3.5 h-3.5"></i> Limpar Filtros
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <!-- Busca Universal -->
+                <div class="sm:col-span-2">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Pesquisa Geral (Objeto, Processo, Ofício, SEI...)</label>
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-slate-400"></i>
+                        <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Digite termos para filtrar..." class="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-uema-accent/40 focus:border-uema-accent">
+                    </div>
+                </div>
+
+                <!-- Filtro de Status -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Status Atual</label>
+                    <select id="filterStatus" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40 focus:border-uema-accent">
+                        <option value="">Todos os Status</option>
+                    </select>
+                </div>
+
+                <!-- Filtro de Localização / Setor -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Localização Setorial</label>
+                    <select id="filterSetor" onchange="applyFilters()" class="w-full py-1.5 px-2.5 text-sm rounded-lg border border-slate-300 focus:ring-2 focus:ring-uema-accent/40 focus:border-uema-accent">
+                        <option value="">Todos os Setores</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <!-- EMPTY STATE (ESTADO INICIAL SEM DADOS) -->
+        <section id="emptyStateContainer" class="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-10 sm:p-14 text-center shadow-sm flex flex-col items-center justify-center">
+            <div class="w-16 h-16 rounded-2xl bg-blue-50 text-uema-lightBlue flex items-center justify-center mb-4 shadow-inner">
+                <i data-lucide="file-spreadsheet" class="w-8 h-8 text-uema-blue"></i>
+            </div>
+            <h3 class="text-lg sm:text-xl font-bold text-slate-800">Nenhuma planilha carregada no momento</h3>
+            <p class="text-sm text-slate-500 max-w-lg mt-1.5 mb-6">
+                Para iniciar a análise dos processos da CPO/UEMA, clique no botão abaixo e selecione sua planilha Excel (<code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-xs">.xlsx</code>, <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-xs">.xls</code> ou <code class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded text-xs">.csv</code>).
+            </p>
+            <label for="excelFileInput" class="cursor-pointer inline-flex items-center gap-2.5 px-6 py-3 bg-uema-blue hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition active:scale-95">
+                <i data-lucide="upload" class="w-5 h-5 text-amber-400"></i>
+                <span>Selecionar Arquivo Excel</span>
+            </label>
+        </section>
+
+        <!-- TABELA DE DADOS INTERATIVA -->
+        <section id="tableSection" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+            <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="table" class="w-4 h-4 text-uema-lightBlue"></i>
+                    <h3 class="font-bold text-slate-800 text-sm sm:text-base">Detalhamento dos Processos e Contratos</h3>
+                </div>
+                <div class="text-xs text-slate-500">
+                    Clique nas colunas para ordenar &bull; Quebras de linha automáticas para leitura fluida
+                </div>
+            </div>
+
+            <!-- Tabela com largura 100% e quebra perfeita sem truncamentos indesejados -->
+            <div class="w-full overflow-x-auto custom-scroll">
+                <table class="w-full text-left text-xs sm:text-sm border-collapse table-auto" id="mainDataTable">
+                    <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 select-none sticky top-0 z-10">
+                        <tr id="tableHeaderRow">
+                            <!-- Preenchido dinamicamente -->
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-200 text-slate-700">
+                        <!-- Preenchido dinamicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Rodapé da Tabela: Totais -->
+            <div class="p-3.5 bg-slate-100 border-t border-slate-200 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-3">
+                <div>
+                    Mostrando <strong id="visibleCountDisplay">0</strong> de <strong id="totalCountDisplay">0</strong> registros encontrados
+                </div>
+                <div class="flex items-center gap-4">
+                    <span>Soma das Linhas Filtradas: <strong id="visibleTotalValueDisplay" class="text-emerald-700 font-bold text-sm">R$ 0,00</strong></span>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Rodapé Oficial UEMA -->
+    <footer class="bg-slate-900 text-slate-400 py-4 text-center text-xs border-t border-slate-800">
+        <p>&copy; Coordenação de Planejamento e Orçamento / Pró-Reitoria de Planejamento - UEMA. Cidade Universitária Paulo VI, São Luís - MA.</p>
+        <p class="text-[11px] text-slate-500 mt-1">Plataforma Executiva de Apresentação e Conferência Orçamentária.</p>
+    </footer>
+
+    <script>
+        // Estado Global: Inicia 100% VAZIO (sem dados prévios ou modelo mock)
+        let dataset = [];
+        let filteredDataset = [];
+        let selectedRowsIds = new Set();
+        let currentSortColumn = null;
+        let isAscending = true;
+        let originalFileName = "acompanhamento.xlsx";
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        // Manipulação do Arquivo Excel (.xlsx)
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            originalFileName = file.name;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+
+                    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                        alert("O arquivo fornecido não possui planilhas válidas.");
+                        return;
+                    }
+
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+
+                    // Conversão direta para JSON
+                    const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                    if (!json || json.length === 0) {
+                        alert("A planilha selecionada está vazia ou não contém dados na primeira aba.");
+                        return;
+                    }
+
+                    // Processamento e normalização dos dados
+                    dataset = json.map((row, index) => {
+                        const normalizedRow = { _internal_id: index + 1 };
+                        Object.keys(row).forEach(key => {
+                            const trimmedKey = key.trim();
+                            let val = row[key];
+
+                            // Converte valores monetários para números caso seja coluna de valor
+                            if (/valor|montante|preço|preco|total|orcamento|orçamento|custo/i.test(trimmedKey)) {
+                                if (typeof val === 'string') {
+                                    val = parseMonetaryString(val);
+                                }
+                            }
+                            normalizedRow[trimmedKey] = val;
+                        });
+                        return normalizedRow;
+                    });
+
+                    // Ativa os painéis da aplicação
+                    activateAppUI(file.name);
+
+                } catch (err) {
+                    console.error("Erro na leitura da planilha:", err);
+                    alert("Falha ao interpretar o arquivo. Certifique-se de que é uma planilha Excel (.xlsx, .xls) válida.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Converte representações monetárias BR para Float
+        function parseMonetaryString(str) {
+            if (!str) return 0;
+            let cleaned = str.toString().replace(/R\$\s?/g, '').trim();
+            if (cleaned.includes(',') && cleaned.includes('.')) {
+                cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            } else if (cleaned.includes(',')) {
+                cleaned = cleaned.replace(',', '.');
+            }
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+        }
+
+        // Ativação e Renderização da UI pós-importação
+        function activateAppUI(fileName) {
+            selectedRowsIds.clear();
+
+            // Esconde Empty State e exibe os painéis
+            document.getElementById('emptyStateContainer').classList.add('hidden');
+            document.getElementById('kpiContainer').classList.remove('hidden');
+            document.getElementById('kpiContainer').classList.add('grid');
+            document.getElementById('filtersSection').classList.remove('hidden');
+            document.getElementById('tableSection').classList.remove('hidden');
+            document.getElementById('selectionSummaryBar').classList.remove('hidden');
+
+            // Habilita botão de exportação
+            const btnExport = document.getElementById('btnExport');
+            btnExport.disabled = false;
+            btnExport.classList.remove('bg-slate-700', 'text-slate-400', 'cursor-not-allowed');
+            btnExport.classList.add('bg-uema-lightBlue', 'hover:bg-blue-600', 'text-white', 'active:scale-95');
+
+            // Atualiza notificação de arquivo
+            document.getElementById('fileNotice').classList.remove('hidden');
+            document.getElementById('loadedFileName').innerText = fileName;
+            document.getElementById('loadedRowsCount').innerText = dataset.length;
+
+            populateFilters();
+            applyFilters();
+            lucide.createIcons();
+        }
+
+        // Localizadores dinâmicos de cabeçalhos
+        function getAvailableColumns() {
+            if (dataset.length === 0) return [];
+            return Object.keys(dataset[0]).filter(k => k !== '_internal_id');
+        }
+
+        function findColByName(regex) {
+            const cols = getAvailableColumns();
+            return cols.find(c => regex.test(c)) || null;
+        }
+
+        function getValueColumn() {
+            return findColByName(/valor|montante|preço|preco|total|custo/i);
+        }
+
+        function getStatusColumn() {
+            return findColByName(/status|situacao|situação|fase|etapa|andamento/i);
+        }
+
+        function getSetorColumn() {
+            return findColByName(/localiz|setor|unidade|campus|departamento|órgão|orgao|destino/i);
+        }
+
+        function getObjetoColumn() {
+            return findColByName(/objeto|descri|especific/i);
+        }
+
+        // Popula selects de filtros com os valores reais da planilha
+        function populateFilters() {
+            const statusCol = getStatusColumn();
+            const setorCol = getSetorColumn();
+
+            // Popula Status
+            const filterStatus = document.getElementById('filterStatus');
+            filterStatus.innerHTML = '<option value="">Todos os Status</option>';
+            if (statusCol) {
+                const uniqueStatus = [...new Set(dataset.map(r => r[statusCol]).filter(Boolean))].sort();
+                uniqueStatus.forEach(st => {
+                    const opt = document.createElement('option');
+                    opt.value = st;
+                    opt.textContent = st;
+                    filterStatus.appendChild(opt);
+                });
+            }
+
+            // Popula Setor
+            const filterSetor = document.getElementById('filterSetor');
+            filterSetor.innerHTML = '<option value="">Todos os Setores</option>';
+            if (setorCol) {
+                const uniqueSetores = [...new Set(dataset.map(r => r[setorCol]).filter(Boolean))].sort();
+                uniqueSetores.forEach(setor => {
+                    const opt = document.createElement('option');
+                    opt.value = setor;
+                    opt.textContent = setor;
+                    filterSetor.appendChild(opt);
+                });
+            }
+        }
+
+        // Aplicação de Filtros
+        function applyFilters() {
+            if (dataset.length === 0) return;
+
+            const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
+            const statusVal = document.getElementById('filterStatus').value;
+            const setorVal = document.getElementById('filterSetor').value;
+
+            const statusCol = getStatusColumn();
+            const setorCol = getSetorColumn();
+
+            filteredDataset = dataset.filter(row => {
+                // Filtro de Texto
+                if (searchVal) {
+                    const match = Object.keys(row).some(k => {
+                        if (k === '_internal_id') return false;
+                        return String(row[k] || '').toLowerCase().includes(searchVal);
+                    });
+                    if (!match) return false;
+                }
+
+                // Filtro de Status
+                if (statusVal && statusCol) {
+                    if (String(row[statusCol] || '') !== statusVal) return false;
+                }
+
+                // Filtro de Setor
+                if (setorVal && setorCol) {
+                    if (String(row[setorCol] || '') !== setorVal) return false;
+                }
+
+                return true;
+            });
+
+            if (currentSortColumn) {
+                sortDataset(currentSortColumn, false);
+            }
+
+            renderTable();
+            updateKPIs();
+            updateSelectionBar();
+        }
+
+        function clearAllFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterSetor').value = '';
+            applyFilters();
+        }
+
+        // Renderização da Tabela com Quebra Perfeita de Linhas
+        function renderTable() {
+            const thead = document.getElementById('tableHeaderRow');
+            const tbody = document.getElementById('tableBody');
+            const columns = getAvailableColumns();
+
+            if (columns.length === 0) return;
+
+            const valCol = getValueColumn();
+            const statusCol = getStatusColumn();
+            const objetoCol = getObjetoColumn();
+
+            // Monta Cabeçalho
+            let headHtml = `
+                <th class="p-3 w-12 text-center border-r border-slate-200">
+                    <input type="checkbox" id="masterCheckbox" onchange="toggleSelectAll(this.checked)" class="w-4 h-4 rounded text-uema-accent focus:ring-0 cursor-pointer">
+                </th>
+            `;
+
+            columns.forEach(col => {
+                const isValue = (col === valCol);
+                const sortIndicator = currentSortColumn === col ? (isAscending ? ' ▲' : ' ▼') : '';
+                
+                // Define larguras sugeridas conforme o tipo da coluna
+                let minWidthClass = "min-w-[140px]";
+                if (col === objetoCol) minWidthClass = "min-w-[280px] max-w-[380px]";
+                if (/ofício|oficio|sei/i.test(col)) minWidthClass = "min-w-[180px] max-w-[240px]";
+                if (isValue) minWidthClass = "min-w-[130px]";
+
+                headHtml += `
+                    <th onclick="toggleSort('${col}')" class="p-3 cursor-pointer hover:bg-slate-200 transition text-slate-800 text-xs font-bold uppercase tracking-wider ${minWidthClass} ${isValue ? 'text-right' : 'text-left'}">
+                        <div class="flex items-center gap-1.5 ${isValue ? 'justify-end' : 'justify-start'}">
+                            <span>${col}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">${sortIndicator}</span>
+                        </div>
+                    </th>
+                `;
+            });
+            thead.innerHTML = headHtml;
+
+            // Monta Corpo da Tabela
+            if (filteredDataset.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="p-8 text-center text-slate-400 font-medium">Nenhum registro corresponde aos filtros selecionados.</td></tr>`;
+                return;
+            }
+
+            let bodyHtml = '';
+            filteredDataset.forEach((row, idx) => {
+                const id = row._internal_id;
+                const isChecked = selectedRowsIds.has(id);
+
+                bodyHtml += `
+                    <tr class="transition-colors hover:bg-blue-50/70 ${isChecked ? 'bg-amber-50/70 border-l-4 border-amber-500' : (idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40')}">
+                        <td class="p-3 text-center border-r border-slate-100">
+                            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleRowSelection(${id}, this.checked)" class="w-4 h-4 rounded text-uema-accent focus:ring-0 cursor-pointer">
+                        </td>
+                `;
+
+                columns.forEach(col => {
+                    const val = row[col];
+
+                    if (col === valCol) {
+                        const num = typeof val === 'number' ? val : parseMonetaryString(val);
+                        bodyHtml += `
+                            <td class="p-3 text-right font-black text-slate-900 whitespace-nowrap tabular-nums text-xs sm:text-sm">
+                                ${formatCurrency(num)}
+                            </td>
+                        `;
+                    } else if (col === statusCol) {
+                        // Status exibido diretamente como texto com quebra de linha harmoniosa (sem bags/pílulas)
+                        bodyHtml += `
+                            <td class="p-3 cell-wrap-text text-slate-800 font-medium">
+                                ${val !== undefined && val !== null && String(val).trim() !== '' ? val : '<span class="text-slate-400">-</span>'}
+                            </td>
+                        `;
+                    } else {
+                        // Todas as demais colunas (Objeto, Ofício, Processo, N.º SEI) com quebra de linha harmoniosa
+                        bodyHtml += `
+                            <td class="p-3 cell-wrap-text text-slate-700 font-normal">
+                                ${val !== undefined && val !== null && String(val).trim() !== '' ? val : '<span class="text-slate-400">-</span>'}
+                            </td>
+                        `;
+                    }
+                });
+
+                bodyHtml += '</tr>';
+            });
+
+            tbody.innerHTML = bodyHtml;
+            updateMasterCheckbox();
+        }
+
+        // Ordenação
+        function toggleSort(col) {
+            if (currentSortColumn === col) {
+                isAscending = !isAscending;
+            } else {
+                currentSortColumn = col;
+                isAscending = true;
+            }
+            sortDataset(col, true);
+        }
+
+        function sortDataset(col, render = true) {
+            filteredDataset.sort((a, b) => {
+                let v1 = a[col];
+                let v2 = b[col];
+
+                if (typeof v1 === 'number' && typeof v2 === 'number') {
+                    return isAscending ? v1 - v2 : v2 - v1;
+                }
+                v1 = String(v1 || '');
+                v2 = String(v2 || '');
+                return isAscending ? v1.localeCompare(v2) : v2.localeCompare(v1);
+            });
+
+            if (render) renderTable();
+        }
+
+        // Checkboxes & Soma Sob Demanda
+        function toggleRowSelection(id, checked) {
+            if (checked) {
+                selectedRowsIds.add(id);
+            } else {
+                selectedRowsIds.delete(id);
+            }
+            updateSelectionBar();
+            updateMasterCheckbox();
+            renderTable();
+        }
+
+        function toggleSelectAll(checked) {
+            filteredDataset.forEach(row => {
+                if (checked) {
+                    selectedRowsIds.add(row._internal_id);
+                } else {
+                    selectedRowsIds.delete(row._internal_id);
+                }
+            });
+            renderTable();
+            updateSelectionBar();
+        }
+
+        function selectAllVisible(enable) {
+            filteredDataset.forEach(row => {
+                if (enable) {
+                    selectedRowsIds.add(row._internal_id);
+                } else {
+                    selectedRowsIds.delete(row._internal_id);
+                }
+            });
+            renderTable();
+            updateSelectionBar();
+        }
+
+        function updateMasterCheckbox() {
+            const master = document.getElementById('masterCheckbox');
+            if (!master || filteredDataset.length === 0) return;
+
+            const allSelected = filteredDataset.every(r => selectedRowsIds.has(r._internal_id));
+            const someSelected = filteredDataset.some(r => selectedRowsIds.has(r._internal_id));
+
+            master.checked = allSelected;
+            master.indeterminate = !allSelected && someSelected;
+        }
+
+        function updateSelectionBar() {
+            const count = selectedRowsIds.size;
+            document.getElementById('selectedCount').innerText = count;
+
+            const valCol = getValueColumn();
+            let sum = 0;
+
+            if (valCol) {
+                dataset.forEach(r => {
+                    if (selectedRowsIds.has(r._internal_id)) {
+                        const v = typeof r[valCol] === 'number' ? r[valCol] : parseMonetaryString(r[valCol]);
+                        sum += (v || 0);
+                    }
+                });
+            }
+
+            document.getElementById('selectedTotalValue').innerText = formatCurrency(sum);
+        }
+
+        // Atualização de KPIs e Cards
+        function updateKPIs() {
+            const total = filteredDataset.length;
+            const globalTotal = dataset.length;
+
+            document.getElementById('cardTotalProcessos').innerText = total;
+            document.getElementById('cardProcessosDesc').innerText = `${total} de ${globalTotal} no banco`;
+            document.getElementById('recordsBadge').innerText = `Exibindo ${total} de ${globalTotal} registros`;
+            document.getElementById('visibleCountDisplay').innerText = total;
+            document.getElementById('totalCountDisplay').innerText = globalTotal;
+
+            const valCol = getValueColumn();
+            const setorCol = getSetorColumn();
+            const statusCol = getStatusColumn();
+
+            // Total Financeiro
+            let sumValor = 0;
+            if (valCol) {
+                filteredDataset.forEach(r => {
+                    const v = typeof r[valCol] === 'number' ? r[valCol] : parseMonetaryString(r[valCol]);
+                    sumValor += (v || 0);
+                });
+            }
+            document.getElementById('cardTotalValor').innerText = formatCurrency(sumValor);
+            document.getElementById('visibleTotalValueDisplay').innerText = formatCurrency(sumValor);
+
+            // Setores
+            if (setorCol) {
+                const uniqueSetores = new Set(filteredDataset.map(r => r[setorCol]).filter(Boolean));
+                document.getElementById('cardSetores').innerText = uniqueSetores.size;
+                document.getElementById('cardSetoresDesc').innerText = `${uniqueSetores.size} setores envolvidos`;
+            } else {
+                document.getElementById('cardSetores').innerText = "-";
+                document.getElementById('cardSetoresDesc').innerText = "Coluna não detectada";
+            }
+
+            // Status Mais Frequente
+            if (statusCol && total > 0) {
+                const frequency = {};
+                filteredDataset.forEach(r => {
+                    const st = r[statusCol];
+                    if (st) frequency[st] = (frequency[st] || 0) + 1;
+                });
+
+                let topStatus = '-';
+                let topCount = 0;
+                Object.keys(frequency).forEach(k => {
+                    if (frequency[k] > topCount) {
+                        topCount = frequency[k];
+                        topStatus = k;
+                    }
+                });
+
+                document.getElementById('cardStatusDestaque').innerText = topStatus;
+                document.getElementById('cardStatusDestaque').title = topStatus;
+                document.getElementById('cardStatusDesc').innerText = `${topCount} processos (${Math.round((topCount/total)*100)}%)`;
+            } else {
+                document.getElementById('cardStatusDestaque').innerText = "-";
+                document.getElementById('cardStatusDesc').innerText = "0 processos";
+            }
+        }
+
+        // Exportação XLSX Respeitando Filtros
+        function exportToExcel() {
+            if (filteredDataset.length === 0) {
+                alert("Não há dados visíveis na tabela para exportar.");
+                return;
+            }
+
+            // Remove o ID interno para exportação limpa e idêntica à planilha original
+            const exportRows = filteredDataset.map(row => {
+                const clone = { ...row };
+                delete clone._internal_id;
+                return clone;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportRows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Processos_UEMA");
+
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const outName = originalFileName.replace(/\.[^/.]+$/, "") + `_filtrado_${dateStr}.xlsx`;
+
+            XLSX.writeFile(wb, outName);
+        }
+
+        // Formatação Monetária BRL
+        function formatCurrency(val) {
+            return Number(val || 0).toLocaleString('pt-BR', {
+                style: 'currency',
+                currency: 'BRL',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+    </script>
+</body>
+</html>
